@@ -61,6 +61,10 @@ AviUtl ExEdit2 Beta15
 また、コードの一部はkaroterraさんの[角丸四角形KR](https://github.com/karoterra/aviutl2-RoundedRect)を参考にしています。
 
 
+## Licence
+本スクリプトは[MITライセンス](../LICENSE)の元、公開されています。
+
+
 ## Change Log
 
 ### v1.0
