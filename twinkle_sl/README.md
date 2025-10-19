@@ -4,10 +4,10 @@
 細い角までジャギーにならずに綺麗に描画できます。<br>
 ピクセルシェーダーで描画しているので、とても軽い（はず）です。
 
-**直線@twinkle_sl**
+`直線@twinkle_sl`<br>
 <img src="./直線@twinkle_sl.png" width=400>
 
-**カーブ@twinkle_sl**
+`カーブ@twinkle_sl`<br>
 <img src="./カーブ@twinkle_sl.png" width=400>
 
 
