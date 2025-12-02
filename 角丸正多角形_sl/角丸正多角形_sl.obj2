@@ -1,116 +1,121 @@
---information:角丸正多角形_sl v1.0 by seilor0
+--information:角丸正多角形_sl v1.1 by seilor0
 --label:カスタムオブジェクト
 
---track@size:サイズ,0,4000,400
+--track@size:サイズ,0,4000,400,1
 --track@n:頂点数,3,40,3,1
 --track@cRatio:角丸[%],0,100,0
 --track@depth:星形[%],0,100,0
---check@isStar:綺麗な星形にする,0
+--check@isStar:綺麗な星形にする,false
 --check@cIsTop:常に頂点を真上にする,1
-
---track@lineW:ライン幅,0,2000,10,0.01
---select@linePos:ライン位置=0,内側=0,中央=1,外側=2
---select@cornerType:角の形状=1,マイター=0,ラウンド=1
-
---color@lineColor:ライン,0x000000
---track@lineAlpha:ラインα,0,100,100
 
 --color@fillColor:塗り,0xffffff
 --track@fillAlpha:塗りα,0,100,100
 
+--group:線,false
+--track@lineW:ライン幅,0,2000,0,1
+--select@linePos:ライン位置=0,内側=0,中央=1,外側=2
+--select@cornerType:角の形状=1,マイター=0,ラウンド=1
+
+--color@lineColor:ライン,0xff0000
+--track@lineAlpha:ラインα,0,100,100
+
 
 --[[pixelshader@psmain:
-cbuffer constant0: register(b0) {
-  float4 fillColor;
-  float4 lineColor;
+  #define PI 3.1415927
 
-  float halfImSize;
-  float halfSize;
-  float depth;
-  float cRatio;
+  cbuffer constant0: register(b0) {
+    float4 fillColor;
+    float4 lineColor;
 
-  float lineW;
-  float linePos;
-  float cornerType;
+    float halfImSize;
+    float halfSize;
+    float depth;
+    float cRatio;
 
-  float n;
-  float cIsTop;
-}
+    float lineW;
+    float linePos;
+    float cornerType;
 
-float2x2 rotateMatrix(float angle) {return float2x2(cos(angle), -sin(angle), sin(angle), cos(angle));}
+    float n;
+    float cIsTop;
+  }
 
-// a:始点, angle:角度(rad)
-float sdRay (float2 p, float2 a, float angle) {
-  float2 dirVec = float2(cos(angle), sin(angle));
-  float2 ap = p-a;
-  float t = max(0, dot(dirVec,ap));
-  float sign1 = sign(dirVec.x*ap.y - dirVec.y*ap.x);
-  float sign2 = sign(dirVec.x==0 ? dirVec.y : dirVec.x);
-  return sign1 * sign2 * length(ap - dirVec*t);
-}
+  float2x2 rotateMatrix (float angle) {
+    return float2x2(cos(angle), -sin(angle), sin(angle), cos(angle));
+  }
 
-// a:通過点, angle:角度(rad)
-float sdLine (float2 p, float2 a, float angle) {
-  float2 dirVec = float2(cos(angle), sin(angle));
-  float2 ap = p-a;
-  float t = dot(dirVec,ap);
-  float sign1 = sign(dirVec.x*ap.y - dirVec.y*ap.x);
-  float sign2 = sign(dirVec.x==0 ? dirVec.y : dirVec.x);
-  return sign1 * sign2 * length(ap - dirVec*t);
-}
+  // a:始点, angle:角度(rad)
+  float sdRay (float2 p, float2 a, float angle) {
+    float2 dirVec = float2(cos(angle), sin(angle));
+    float2 ap = p-a;
+    float t = max(0, dot(dirVec,ap));
+    float sign1 = sign(dirVec.x*ap.y - dirVec.y*ap.x);
+    float sign2 = sign(dirVec.x==0 ? dirVec.y : dirVec.x);
+    return sign1 * sign2 * length(ap - dirVec*t);
+  }
 
-// radius:外接円の半径, depth:切込み深さ
-float sdStar(float2 p, int n, float radius, float depth) {
-  float halfAngle = 3.1415927 / n;
-  float notchAngle = atan(depth/tan(halfAngle));
-  float halfArmAngle = 3.1415927*0.5 - halfAngle - notchAngle;
-  float cRadius = cRatio * radius * sin(halfAngle) / cos(notchAngle) * tan(halfArmAngle);
-  radius -= cRadius / sin(halfArmAngle);
+  // a:通過点, angle:角度(rad)
+  float sdLine (float2 p, float2 a, float angle) {
+    float2 dirVec = float2(cos(angle), sin(angle));
+    float2 ap = p-a;
+    float t = dot(dirVec,ap);
+    float sign1 = sign(dirVec.x*ap.y - dirVec.y*ap.x);
+    float sign2 = sign(dirVec.x==0 ? dirVec.y : dirVec.x);
+    return sign1 * sign2 * length(ap - dirVec*t);
+  }
 
-  if (radius<1e-6) return length(p) - cRadius;
+  // radius:外接円の半径, depth:切込み深さ
+  float sdStar(float2 p, int n, float radius, float depth) {
+    float halfAngle = PI / n;
+    float notchAngle = atan(depth/tan(halfAngle));
+    float halfArmAngle = 0.5*PI - halfAngle - notchAngle;
+    float cRadius = cRatio * radius * sin(halfAngle) / cos(notchAngle) * tan(halfArmAngle);
+    radius -= cRadius / sin(halfArmAngle);
 
-  // cIsTop
-  p = p.yx;
-  float angle1 = halfAngle * fmod(n+1,2) * cIsTop;
-  p = mul(rotateMatrix(-angle1), p);
+    if (radius<1e-6) return length(p) - cRadius;
 
-  // rotate in mirror base
-  float angle = atan2(p.y, p.x);
-  float rotAngle = 2*halfAngle * floor(angle*0.5/halfAngle + 0.5);
-  p = mul(rotateMatrix(-rotAngle), p);
+    // cIsTop
+    p = p.yx;
+    float angle1 = halfAngle * fmod(n+1,2) * cIsTop;
+    p = mul(rotateMatrix(-angle1), p);
 
-  // symmetry
-  p.y = abs(p.y);
+    // rotate in mirror base
+    float angle = atan2(p.y, p.x);
+    float rotAngle = 2*halfAngle * floor(angle*0.5/halfAngle + 0.5);
+    p = mul(rotateMatrix(-rotAngle), p);
 
-  // pt
-  float2 pt1 = float2(cos(halfAngle), sin(halfAngle)) * radius;
-  float rad = atan2(-pt1.y, -pt1.x*depth);
-  if (cornerType==0 && cRatio==0) return -sdLine(p, pt1, rad) - cRadius;
-  else return -sdRay(p, pt1, rad) - cRadius;
-}
+    // symmetry
+    p.y = abs(p.y);
 
-// src: 前景色, dst: 背景色
-float4 blend(float4 src, float4 dst) {
-  float4 color = src + dst * (1-src.a);
-  return color.a<1e-6 ? float4(0,0,0,0) : color;
-}
+    // pt
+    float2 pt1 = float2(cos(halfAngle), sin(halfAngle)) * radius;
+    float rad = atan2(-pt1.y, -pt1.x*depth);
+    if (cornerType==0.0 && cRatio==0) return -sdLine(p, pt1, rad) - cRadius;
+    else return -sdRay(p, pt1, rad) - cRadius;
+  }
 
-float4 psmain(float4 pos:SV_Position): SV_Target {
-  float2 p = pos.xy - halfImSize;
-  float d = sdStar(p, n, halfSize, depth);
+  // src: 前景色, dst: 背景色
+  float4 blend(float4 src, float4 dst) {
+    float4 color = src + dst * (1.0-src.a);
+    return color.a<1e-6 ? float4(0.0,0.0,0.0,0.0) : color;
+  }
 
-  // fill
-  float alpha1 = saturate(0.5-d);
-  // line
-  float offset = (linePos-1) * lineW * 0.5;
-  float alpha2 = saturate((lineW+1)/2-abs(d-offset));
-  alpha2 *= (lineW>0.0) ? 1 : 0;
-  return blend(lineColor*alpha2, fillColor*alpha1);
-}
+  float4 psmain(float4 pos:SV_Position): SV_Target {
+    float2 p = pos.xy - halfImSize;
+    float d = sdStar(p, n, halfSize, depth);
+
+    // fill
+    float alpha1 = saturate((linePos==0&&lineW>0.0 ? 0.0 : 0.5) - d);
+    // line
+    float offset = (linePos-1) * lineW * 0.5;
+    float alpha2 = saturate((lineW+1)/2-abs(d-offset));
+    alpha2 *= (lineW>0.0) ? 1.0 : 0.0;
+    return blend(lineColor*alpha2, fillColor*alpha1);
+  }
 ]]
 
 -- depth
-if (isStar==1 and n>4) then depth = math.tan(math.pi/n)^2 else depth=depth/100 end
+if (isStar and n>4) then depth = math.tan(math.pi/n)^2 else depth=depth/100 end
 
 if size<2 or depth==1 then return end
 

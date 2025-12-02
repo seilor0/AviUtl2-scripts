@@ -67,5 +67,8 @@ AviUtl ExEdit2 Beta15
 
 ## Change Log
 
+### v1.1
+- 変更：線の設定をグループにまとめる（AviUtl2 Beta22以降必須）
+
 ### v1.0
 初版を公開

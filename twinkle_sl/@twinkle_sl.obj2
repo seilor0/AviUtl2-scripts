@@ -1,5 +1,5 @@
 @直線
---information:twinkle_sl(line) v1.0 by seilor0
+--information:twinkle_sl(line) v1.1 by seilor0
 --label:カスタムオブジェクト
 
 --track@size:サイズ,0,4000,500,1
@@ -7,6 +7,10 @@
 --track@depth:深さ[%],0,100,75
 --track@cRatio:角丸[%],0,100,0
 
+--color@fillColor:塗り,0xffffff
+--track@fillAlpha:塗りα[%],0,100,100
+
+--group:線,false
 --track@lineW:ライン幅[%],0,200,0,0.1
 --check@useLinewAsIs:ライン幅を絶対値として設定する,0
 --select@linePos:ライン位置=1,内側=0,中央=1,外側=2
@@ -15,10 +19,10 @@
 --color@lineColor:ライン,0xff0000
 --track@lineAlpha:ラインα[%],0,100,100
 
---color@fillColor:塗り,0xffffff
---track@fillAlpha:塗りα[%],0,100,100
-
 --[[pixelshader@psmain:
+
+  #define PI 3.1415927
+
   cbuffer constant0: register(b0) {
     float4 fillColor;
     float4 lineColor;
@@ -68,15 +72,15 @@
       float2 bisector = 1-aRatio<1e-6 ? float2(halfSize.y, halfSize.x) : vecX/length(vecX) + vecY/length(vecY);
       float sign1 = sign(bisector.x * (p-a).y - bisector.y * (p-a).x);
       
-      if (sign1<0.0) return sdRay(p, float2(halfSize.x - delta.x, 0), 3.1415927-angle.x) - radius.x;
-      else           return sdRay(p, float2(0, halfSize.y - delta.y), angle.y-3.1415927*0.5) - radius.y;
+      if (sign1<0.0) return sdRay(p, float2(halfSize.x - delta.x, 0), PI-angle.x) - radius.x;
+      else return sdRay(p, float2(0, halfSize.y - delta.y), angle.y-0.5*PI) - radius.y;
     }
   }
 
   // src: 前景色, dst: 背景色
   float4 blend(float4 src, float4 dst) {
-    float4 color = src + dst * (1-src.a);
-    return color.a<1e-6 ? float4(0,0,0,0) : color;
+    float4 color = src + dst * (1.0-src.a);
+    return color.a<1e-6 ? float4(0.0,0.0,0.0,0.0) : color;
   }
 
   float4 psmain(float4 pos: SV_Position) : SV_Target {
@@ -84,22 +88,22 @@
     float d = sdTwinkle(p, halfSize, a);
 
     // fill
-    float alpha1 = (linePos==0 && lineW>1.0) ? saturate(-d) : saturate(0.5-d);
+    float alpha1 = saturate((linePos==0&&lineW>1.0 ? 0.0 : 0.5) - d);
     // line
-    float offset = (linePos-1) * lineW * 0.5;
+    float offset = (linePos-1) * lineW/2;
     float alpha2 = saturate((lineW+1)/2-abs(d-offset));
-    alpha2 *= (lineW>0.0) ? 1 : 0;
+    alpha2 *= (lineW>0.0) ? 1.0 : 0.0;
 
     return blend(lineColor*alpha2, fillColor*alpha1);
   }
 ]]
+
 
 local sy = size/2
 local sx = sy * xRatio/100
 local a  = sy * xRatio/(100+xRatio) * (100-depth)/100 -- 交差部分の1辺の長さ
 
 if sx<1 then return end
-
 if useLinewAsIs==0 then lineW = size*lineW/200 end
 
 -- color
@@ -139,25 +143,29 @@ obj.load("tempbuffer")
 
 
 @カーブ
---information:twinkle_sl(curve) v1.0 by seilor0
+--information:twinkle_sl(curve) v1.1 by seilor0
 --label:カスタムオブジェクト
 
 --track@size:サイズ,0,4000,500,1
 --track@xRatio:幅[%],0,100,70
 --track@depth:深さ[%],0,100,50,0.1
 
+--color@fillColor:塗り,0xffffff
+--track@fillAlpha:塗りα,0,100,100
+
+--group:線,false
 --track@lineW:ライン幅[%],0,200,0,0.1
 --check@useLinewAsIs:ライン幅を絶対値として設定する,0
---select@linePos:ライン位置=0,内側=0,中央=1,外側=2
+--select@linePos:ライン位置=1,内側=0,中央=1,外側=2
 --check@remainLine:ラインを最低1px残す,1
 
 --color@lineColor:ライン,0xff0000
 --track@lineAlpha:ラインα,0,100,100
 
---color@fillColor:塗り,0xffffff
---track@fillAlpha:塗りα,0,100,100
-
 --[[pixelshader@psmain:
+
+  #define PI 3.14159265
+
   cbuffer constant0: register(b0) {
     float4 fillColor;
     float4 lineColor;
@@ -179,7 +187,7 @@ obj.load("tempbuffer")
       float s = sin(x);
       float cn = halfSize.x * pow(c,n);
       float sn = halfSize.y * pow(s,n);
-      // 法線ベクトル(an*sn*c*c,bn*cn*s*s)とベクトルの内積
+      // 法線ベクトル(sn*c*c,cn*s*s)とベクトルの外積
       float y = (p.x-cn)*cn*s*s - (p.y-sn)*sn*c*c;
 
       if (y<0.0) xa = x;
@@ -196,28 +204,27 @@ obj.load("tempbuffer")
   float sdSquircle(float2 p, float2 halfSize, float n) {
     p = abs(p);
     halfSize = abs(halfSize);
-    n = 2.0/n; // note the remapping in order to match the implicit versions
-    float d1 = biSearch(p, halfSize, n, 0.0, 3.14159265/4.0);
-    float d2 = biSearch(p, halfSize, n, 3.14159265/4.0, 3.14159265/2.0);
+    n = 2.0/n;
+    float d1 = biSearch(p, halfSize, n, 0.0,    0.25*PI);
+    float d2 = biSearch(p, halfSize, n, 0.25*PI, 0.5*PI);
     return abs(d1)<abs(d2) ? d1 : d2;
   }
 
   // src: 前景色, dst: 背景色
   float4 blend(float4 src, float4 dst) {
-    float4 color = src + dst * (1-src.a);
-    return color.a<1e-6 ? float4(0,0,0,0) : color;
+    float4 color = src + dst * (1.0-src.a);
+    return color.a<1e-6 ? float4(0.0,0.0,0.0,0.0) : color;
   }
 
   float4 psmain(float4 pos:SV_Position): SV_Target {
     float2 p = pos.xy - halfImSize;
     float d = sdSquircle(p, halfSize, n);
-    float remain = remainLine*0.5;
     // fill
-    float alpha1 = (linePos==0 && lineW>0.0) ? saturate(remain-d) : saturate(remain+0.5-d);
+    float alpha1 = saturate((remainLine+(linePos==0&&lineW>0.0 ? 0.0 : 1.0))/2 - d);
     // line
-    float offset = (linePos-1)*lineW*0.5 + remain;
+    float offset = ((linePos-1)*lineW + remainLine) / 2;
     float alpha2 = saturate((lineW+1)/2-abs(d-offset));
-    alpha2 *= (lineW>0.0) ? 1 : 0;
+    alpha2 *= (lineW>0.0) ? 1.0 : 0.0;
     return blend(lineColor*alpha2, fillColor*alpha1);
   }
 ]]
